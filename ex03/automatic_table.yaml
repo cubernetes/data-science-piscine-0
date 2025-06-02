@@ -52,6 +52,31 @@ services:
       POSTGRES_PASSWORD: a
     networks:
       - db
+  db-ui:
+    image: dpage/pgadmin4:9.4.0
+    environment:
+      PGADMIN_DEFAULT_EMAIL: a@a.a
+      PGADMIN_DEFAULT_PASSWORD: a
+    ports:
+      - "8080:80"
+    configs:
+      - source: servers.json
+        target: /pgadmin4/servers.json
+    networks:
+      - db
+
+configs:
+  servers.json:
+    content: |
+      { "Servers": { "1": {
+          "Name": "Main DB",
+          "Group": "Servers",
+          "Host": "db",
+          "Port": 5432,
+          "MaintenanceDB": "postgres",
+          "Username": "postgres",
+          "Tags": []
+      } } }
 
 networks:
   db:

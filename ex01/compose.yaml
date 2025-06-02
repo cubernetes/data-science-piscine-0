@@ -3,6 +3,8 @@ services:
     image: postgres:17.5-bookworm
     environment:
       POSTGRES_PASSWORD: a
+    networks:
+      - db
   db-ui:
     image: dpage/pgadmin4:9.4.0
     environment:
