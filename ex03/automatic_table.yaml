@@ -1,17 +1,16 @@
 services:
   db:
     build:
-      context: .
       dockerfile_inline: |
         FROM postgres:17.5-bookworm
 
         COPY --chmod=444 ./customer/ /customer/
 
-        COPY --chmod=444 <<-'EOF' /docker-entrypoint-initdb.d/0-init.sql
-          CREATE TYPE event_types AS ENUM ('cart', 'purchase', 'remove_from_cart', 'view');
+        COPY --chmod=444 <<-EOF /docker-entrypoint-initdb.d/0-init.sql
+        	CREATE TYPE event_types AS ENUM ('cart', 'purchase', 'remove_from_cart', 'view');
         EOF
 
-        COPY --chmod=444 <<-'EOF' /0-data.sql.template
+        COPY --chmod=444 <<-EOF /0-data.sql.template
         	CREATE TABLE {{TABLE_NAME}} (
         		id           SERIAL PRIMARY KEY,
         		event_time   TIMESTAMP     NOT NULL,
@@ -23,7 +22,7 @@ services:
         	);
         EOF
 
-        COPY --chmod=755 <<-'EOF' /entrypoint.sh
+        COPY --chmod=755 <<-EOF /entrypoint.sh
         	#!/usr/bin/env bash
 
         	set -Eeuxvo pipefail
@@ -42,12 +41,5 @@ services:
         CMD ["postgres"]
 
         ENTRYPOINT ["/entrypoint.sh"]
-    volumes:
-      - "db-data:/var/lib/postgresql/data/"
     environment:
-      - POSTGRES_DB
-      - POSTGRES_USER
-      - POSTGRES_PASSWORD
-
-volumes:
-  db-data:
+      POSTGRES_PASSWORD: a

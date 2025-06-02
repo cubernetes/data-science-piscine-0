@@ -1,0 +1,53 @@
+services:
+  db:
+    build:
+      dockerfile_inline: |
+        FROM postgres:17.5-bookworm
+
+        COPY --chmod=444 ./items/items.csv /items.csv
+
+        COPY --chmod=444 <<-EOF /docker-entrypoint-initdb.d/0-init.sql
+          CREATE TYPE event_types AS ENUM ('cart', 'purchase', 'remove_from_cart', 'view');
+
+          CREATE TABLE brands(
+            id            SERIAL        PRIMARY KEY,
+            brand_name    TEXT          NOT NULL      UNIQUE
+          );
+
+          CREATE TABLE items(
+            id            SERIAL        PRIMARY KEY,
+            product_id    INTEGER       NOT NULL,
+            category_id   BIGINT,
+            category_code TEXT[],
+            brand         TEXT          REFERENCES brands(brand_name)
+          );
+
+          CREATE TEMP TABLE items_staging (
+            product_id TEXT,
+            category_id TEXT,
+            category_code TEXT,
+            brand TEXT
+          );
+
+          COPY items_staging (product_id, category_id, category_code, brand)
+          FROM '/items.csv' WITH (FORMAT csv, HEADER true, DELIMITER ',');
+
+          INSERT INTO brands (brand_name)
+          SELECT DISTINCT brand
+          FROM items_staging
+          WHERE brand IS NOT NULL AND brand <> ''
+          ON CONFLICT (brand_name) DO NOTHING;
+
+          INSERT INTO items (product_id, category_id, category_code, brand)
+          SELECT
+            product_id::INTEGER,
+            category_id::BIGINT,
+            CASE
+              WHEN category_code IS NULL OR category_code = '' THEN NULL
+              ELSE string_to_array(category_code, '.')
+            END,
+            NULLIF(brand, '')
+          FROM items_staging;
+        EOF
+    environment:
+      POSTGRES_PASSWORD: a

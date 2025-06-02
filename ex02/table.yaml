@@ -1,0 +1,21 @@
+services:
+  db:
+    build:
+      dockerfile_inline: |
+        FROM postgres:17.5-bookworm
+
+        COPY --chmod=444 <<-EOF /docker-entrypoint-initdb.d/0-init.sql
+        	CREATE TYPE event_types AS ENUM ('cart', 'purchase', 'remove_from_cart', 'view');
+
+        	CREATE TABLE data_2022_oct(
+        		id           SERIAL        PRIMARY KEY,
+        		event_time   TIMESTAMP     NOT NULL,
+        		event_type   event_types   NOT NULL,
+        		product_id   INTEGER       NOT NULL,
+        		price        NUMERIC(10,2) NOT NULL,
+        		user_id      BIGINT        NOT NULL,
+        		user_session UUID          NOT NULL
+        	);
+        EOF
+    environment:
+      POSTGRES_PASSWORD: a
