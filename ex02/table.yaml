@@ -19,3 +19,8 @@ services:
         EOF
     environment:
       POSTGRES_PASSWORD: a
+    networks:
+      - db
+
+networks:
+  db:

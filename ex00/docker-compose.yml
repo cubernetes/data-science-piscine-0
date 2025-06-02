@@ -5,3 +5,8 @@ services:
       POSTGRES_DB: piscineds
       POSTGRES_USER: tischmid
       POSTGRES_PASSWORD: mysecretpassword
+    networks:
+      - db
+
+networks:
+  db:

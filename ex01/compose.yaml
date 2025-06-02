@@ -13,6 +13,11 @@ services:
     configs:
       - source: servers.json
         target: /pgadmin4/servers.json
+    networks:
+      - db
+
+networks:
+  db:
 
 configs:
   servers.json:

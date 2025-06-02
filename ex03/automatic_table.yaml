@@ -4,25 +4,31 @@ services:
       dockerfile_inline: |
         FROM postgres:17.5-bookworm
 
-        COPY --chmod=444 ./customer/ /customer/
+        COPY --chown=postgres:postgres --chmod=555 ./customer/ /customer/
 
         COPY --chmod=444 <<-EOF /docker-entrypoint-initdb.d/0-init.sql
         	CREATE TYPE event_types AS ENUM ('cart', 'purchase', 'remove_from_cart', 'view');
         EOF
 
         COPY --chmod=444 <<-EOF /0-data.sql.template
-        	CREATE TABLE {{TABLE_NAME}} (
+        	CREATE TABLE "{{TABLE_NAME}}" (
         		id           SERIAL PRIMARY KEY,
         		event_time   TIMESTAMP     NOT NULL,
         		event_type   event_types   NOT NULL,
         		product_id   INTEGER       NOT NULL,
         		price        NUMERIC(10,2) NOT NULL,
         		user_id      BIGINT        NOT NULL,
-        		user_session UUID          NOT NULL
+        		user_session UUID
         	);
+
+            COPY "{{TABLE_NAME}}"
+              (event_time, event_type, product_id, price, user_id, user_session)
+            FROM '{{CSV_PATH}}'
+            WITH (FORMAT csv, HEADER true, DELIMITER ',');
+
         EOF
 
-        COPY --chmod=755 <<-EOF /entrypoint.sh
+        COPY --chmod=755 <<-'EOF' /entrypoint.sh
         	#!/usr/bin/env bash
 
         	set -Eeuxvo pipefail
@@ -30,8 +36,9 @@ services:
 
             i=1
             for csv_file in /customer/*.csv; do
-              escaped_basename=$$(basename -- "$$(printf %s "$${csv_file%.csv}")" | sed 's/[\/&]/\\&/')
-              sed "s/{{TABLE_NAME}}/$${escaped_basename}/" /0-data.sql.template > /docker-entrypoint-initdb.d/$$i-data.sql
+              escaped_basename=$$(basename -- "$$(printf %s "$${csv_file%.csv}")" | sed 's/[\/&]/\\&/g')
+              escaped_filename=$$(printf %s "$${csv_file}" | sed 's/[\/&]/\\&/g')
+              sed "s/{{TABLE_NAME}}/$${escaped_basename}/g; s/{{CSV_PATH}}/$${escaped_filename}/g" /0-data.sql.template > /docker-entrypoint-initdb.d/$$i-data.sql
               i=$$((i + 1))
             done
 
@@ -43,3 +50,8 @@ services:
         ENTRYPOINT ["/entrypoint.sh"]
     environment:
       POSTGRES_PASSWORD: a
+    networks:
+      - db
+
+networks:
+  db:
