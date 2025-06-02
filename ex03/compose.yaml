@@ -1,0 +1,53 @@
+services:
+  db:
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM postgres:17.5-bookworm
+
+        COPY --chmod=444 ./customer/ /customer/
+
+        COPY --chmod=444 <<-'EOF' /docker-entrypoint-initdb.d/0-init.sql
+          CREATE TYPE event_types AS ENUM ('cart', 'purchase', 'remove_from_cart', 'view');
+        EOF
+
+        COPY --chmod=444 <<-'EOF' /0-data.sql.template
+        	CREATE TABLE {{TABLE_NAME}} (
+        		id           SERIAL PRIMARY KEY,
+        		event_time   TIMESTAMP     NOT NULL,
+        		event_type   event_types   NOT NULL,
+        		product_id   INTEGER       NOT NULL,
+        		price        NUMERIC(10,2) NOT NULL,
+        		user_id      BIGINT        NOT NULL,
+        		user_session UUID          NOT NULL
+        	);
+        EOF
+
+        COPY --chmod=755 <<-'EOF' /entrypoint.sh
+        	#!/usr/bin/env bash
+
+        	set -Eeuxvo pipefail
+            shopt -s nullglob
+
+            i=1
+            for csv_file in /customer/*.csv; do
+              escaped_basename=$$(basename -- "$$(printf %s "$${csv_file%.csv}")" | sed 's/[\/&]/\\&/')
+              sed "s/{{TABLE_NAME}}/$${escaped_basename}/" /0-data.sql.template > /docker-entrypoint-initdb.d/$$i-data.sql
+              i=$$((i + 1))
+            done
+
+        	exec docker-entrypoint.sh "$$@"
+        EOF
+
+        CMD ["postgres"]
+
+        ENTRYPOINT ["/entrypoint.sh"]
+    volumes:
+      - "db-data:/var/lib/postgresql/data/"
+    environment:
+      - POSTGRES_DB
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+
+volumes:
+  db-data:
