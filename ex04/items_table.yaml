@@ -4,7 +4,7 @@ services:
       dockerfile_inline: |
         FROM postgres:17.5-bookworm
 
-        COPY --chmod=444 ./items/items.csv /items.csv
+        COPY --chmod=444 ./item/item.csv /item.csv
 
         COPY --chmod=444 <<-EOF /docker-entrypoint-initdb.d/0-init.sql
           CREATE TYPE event_types AS ENUM ('cart', 'purchase', 'remove_from_cart', 'view');
@@ -30,7 +30,7 @@ services:
           );
 
           COPY items_staging (product_id, category_id, category_code, brand)
-          FROM '/items.csv' WITH (FORMAT csv, HEADER true, DELIMITER ',');
+          FROM '/item.csv' WITH (FORMAT csv, HEADER true, DELIMITER ',');
 
           INSERT INTO brands (brand_name)
           SELECT DISTINCT brand
