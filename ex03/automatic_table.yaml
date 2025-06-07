@@ -1,10 +1,12 @@
 services:
   db:
     build:
+      additional_contexts:
+        data: ../data/
       dockerfile_inline: |
         FROM postgres:17.5-bookworm
 
-        COPY --chown=postgres:postgres --chmod=555 ./customer/ /customer/
+        COPY --from=data --chown=postgres:postgres --chmod=555 ./customer/ /customer/
 
         COPY --chmod=444 <<-EOF /docker-entrypoint-initdb.d/0-init.sql
         	CREATE TYPE event_types AS ENUM ('cart', 'purchase', 'remove_from_cart', 'view');
@@ -21,26 +23,25 @@ services:
         		user_session UUID
         	);
 
-            COPY "{{TABLE_NAME}}"
-              (event_time, event_type, product_id, price, user_id, user_session)
-            FROM '{{CSV_PATH}}'
-            WITH (FORMAT csv, HEADER true, DELIMITER ',');
-
+        	COPY "{{TABLE_NAME}}"
+        	(event_time, event_type, product_id, price, user_id, user_session)
+        	FROM '{{CSV_PATH}}'
+        	WITH (FORMAT csv, HEADER true, DELIMITER ',');
         EOF
 
         COPY --chmod=755 <<-'EOF' /entrypoint.sh
         	#!/usr/bin/env bash
 
         	set -Eeuxvo pipefail
-            shopt -s nullglob
+        	shopt -s nullglob
 
-            i=1
-            for csv_file in /customer/*.csv; do
-              escaped_basename=$$(basename -- "$$(printf %s "$${csv_file%.csv}")" | sed 's/[\/&]/\\&/g')
-              escaped_filename=$$(printf %s "$${csv_file}" | sed 's/[\/&]/\\&/g')
-              sed "s/{{TABLE_NAME}}/$${escaped_basename}/g; s/{{CSV_PATH}}/$${escaped_filename}/g" /0-data.sql.template > /docker-entrypoint-initdb.d/$$i-data.sql
-              i=$$((i + 1))
-            done
+        	i=1
+        	for csv_file in /customer/*.csv; do
+        		escaped_basename=$$(basename -- "$$(printf %s "$${csv_file%.csv}")" | sed 's/[\/&]/\\&/g')
+        		escaped_filename=$$(printf %s "$${csv_file}" | sed 's/[\/&]/\\&/g')
+        		sed "s/{{TABLE_NAME}}/$${escaped_basename}/g; s/{{CSV_PATH}}/$${escaped_filename}/g" /0-data.sql.template > /docker-entrypoint-initdb.d/$$i-data.sql
+        		i=$$((i + 1))
+        	done
 
         	exec docker-entrypoint.sh "$$@"
         EOF

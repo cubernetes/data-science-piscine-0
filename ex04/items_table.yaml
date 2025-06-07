@@ -1,10 +1,12 @@
 services:
   db:
     build:
+      additional_contexts:
+        data: ../data/
       dockerfile_inline: |
         FROM postgres:17.5-bookworm
 
-        COPY --chmod=444 ./item/item.csv /item.csv
+        COPY --from=data --chmod=444 ./item/item.csv /item.csv
 
         COPY --chmod=444 <<-EOF /docker-entrypoint-initdb.d/0-init.sql
           CREATE TABLE brands(
